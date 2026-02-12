@@ -4,6 +4,10 @@ from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
 import re
+import time
+from vosk import Model, KaldiRecognizer
+
+model = Model("vosk-model-en-us-0.22")
 
 load_dotenv()
 
@@ -119,12 +123,14 @@ def welcome():
 
                         if collection_name in db.list_collection_names():
                             st.success(f"Welcome Back! {name.title()}")
+                            time.sleep(3)
 
                         else:
                             db.create_collection(collection_name)
                             # Inserting a document ensures it's actually visible in MongoDB tools
                             db[collection_name].insert_one({"name": name.title(), "age": age})
                             st.success(f"WELCOME! {name.title()}")
+                            time.sleep(3)
 
                         st.session_state['user_name'] = name.title()
                         st.session_state['user_age'] = age_input
@@ -132,55 +138,74 @@ def welcome():
                         st.session_state.page = "next_page"
                         st.rerun()  # This will now carry the data to the next page
 
+
                     except Exception as e:
 
                         st.error(f"Database Error: {e}")
 
     # return name, age_input
+def  recording():
+    from streamlit_webrtc import webrtc_streamer, WebRtcMode
+    from aiortc.contrib.media import MediaRecorder
+
+    def recorder_factory():
+        return MediaRecorder("audio.wav")
 
 
-def child_response():
-    import queue
-    import sounddevice as sd
+    if "start_time" not in st.session_state:
+        st.session_state.start_time = None
+
+    playing = st.session_state.get("playing", True)
+
+    webrtc_ctx = webrtc_streamer(
+        key="auto-save-recorder",
+        mode=WebRtcMode.SENDONLY,
+        media_stream_constraints={"audio": True, "video": False},
+        in_recorder_factory=recorder_factory,
+        desired_playing_state=playing,
+    )
+
+    if webrtc_ctx.state.playing:
+        if st.session_state.start_time is None:
+            st.session_state.start_time = time.time()
+
+        elapsed_time = time.time() - st.session_state.start_time
+
+        if elapsed_time < 10:
+            time.sleep(0.5)
+            st.rerun()
+        else:
+            st.session_state.playing = False
+            st.session_state.start_time = None
+            # st.rerun
+def transcript_db():
+    import os
     import json
-    from vosk import Model, KaldiRecognizer
+    import wave
 
-    # 1. Reset alignment and background styles immediately
-    reset_style = """
-        <style>
-            [data-testid="stAppViewContainer"] {
-                background-image: none !important; /* Clears the old BG if new one fails */
-            }
-            [data-testid="stVerticalBlock"] {
-                align-items: flex-start !important;
-                justify-content: flex-start !important;
-                text-align: left !important;
-            }
-        </style>
-    """
-    st.markdown(reset_style, unsafe_allow_html=True)
+    wf = wave.open("output.wav", "rb")
 
-    # 2. Set the new background
-    def get_base64_of_bin_file(bin_file):
-        with open(bin_file, 'rb') as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
+    rec = KaldiRecognizer(model, wf.getframerate())
 
-    def set_png_as_page_bg(bin_file):
-        bin_str = get_base64_of_bin_file(bin_file)
-        page_bg_img = f'''
-            <style>
-            [data-testid="stAppViewContainer"] {{
-                background-image: url("data:image/png;base64,{bin_str}") !important;
-                background-size: cover !important;
-            }}
-            </style>
-            '''
-        st.markdown(page_bg_img, unsafe_allow_html=True)
+    full_text = []
 
-    set_png_as_page_bg('static/workking_background.png')
+    while True:
+        data = wf.readframes(4000)
+        if len(data) == 0:
+            break
 
-    # 3. UI Content
+        if rec.AcceptWaveform(data):
+            result = json.loads(rec.Result())
+            full_text.append(result.get("text", ""))
+
+    final_result = json.loads(rec.FinalResult())
+    full_text.append(final_result.get("text", ""))
+
+    print("FINAL TRANSCRIPT:")
+    # print(" ".join(full_text))
+    final_transcript = " ".join(full_text)
+
+    # DataBase Initialization
     name = st.session_state.get('user_name', 'Guest')
     collection_name = st.session_state.get('collectioName', 'Guest')
     st.title(f"Hello {name}!")
@@ -188,36 +213,14 @@ def child_response():
     mongo_uri = os.getenv("mongo_connector")
     client = MongoClient(mongo_uri)
     db = client["test_data"]
-
-    # 4. Use a button to start the loop so the UI can render first
-    if st.button("Start Mic"):
-        q = queue.Queue()
-
-        def callback(indata, frames, time, status):
-            q.put(bytes(indata))
-
-        model = Model("vosk-model-en-us-0.22")
-        rec = KaldiRecognizer(model, 16000)
-
-        with sd.RawInputStream(
-                samplerate=16000, blocksize=8000, dtype="int16",
-                channels=1, callback=callback
-        ):
-            st.info("Mic is active. Speak now...")
-            while True:
-                data = q.get()
-                if rec.AcceptWaveform(data):
-                    result = json.loads(rec.Result())
-                    # Displaying in the app instead of just the terminal
-                    st.write(f"You said: {result['text']}")
-                    db[collection_name].insert_one({"You_Said": result['text'] })
-                    print(result['text'])
-
+    print(final_transcript)
+    db[collection_name].insert_one({"Child_Answer": final_transcript})
+    os.remove("output.wav")
 
 
 
 
 if st.session_state.page == 'home':
     welcome()
-elif st.session_state.page == 'next_page':
-    child_response()
+# elif st.session_state.page == 'next_page':
+#     child_response()

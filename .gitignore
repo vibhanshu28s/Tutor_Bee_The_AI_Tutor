@@ -3,3 +3,4 @@
 __pycache__
 .idea
 vosk-model-en-us-0.22/
+backup.py
