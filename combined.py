@@ -6,8 +6,12 @@ from dotenv import load_dotenv
 import re
 import time
 from vosk import Model, KaldiRecognizer
+import functools
 
-model = Model("vosk-model-en-us-0.22")
+@functools.lru_cache(maxsize=1)
+def get_vosk_model(model_path):
+
+    return Model(model_path)
 
 load_dotenv()
 
@@ -183,9 +187,11 @@ def transcript_db():
     import json
     import wave
 
-    wf = wave.open("output.wav", "rb")
+    model_instance_1 = get_vosk_model("vosk-model-en-us-0.22")
 
-    rec = KaldiRecognizer(model, wf.getframerate())
+    wf = wave.open("audio.wav", "rb")
+
+    rec = KaldiRecognizer(model_instance_1, wf.getframerate())
 
     full_text = []
 
@@ -215,12 +221,13 @@ def transcript_db():
     db = client["test_data"]
     print(final_transcript)
     db[collection_name].insert_one({"Child_Answer": final_transcript})
-    os.remove("output.wav")
+    os.remove("audio.wav")
 
+def child_response():
 
 
 
 if st.session_state.page == 'home':
     welcome()
-# elif st.session_state.page == 'next_page':
-#     child_response()
+elif st.session_state.page == 'next_page':
+    child_response()
