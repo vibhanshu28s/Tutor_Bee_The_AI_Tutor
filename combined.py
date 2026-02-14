@@ -223,7 +223,62 @@ def transcript_db():
     db[collection_name].insert_one({"Child_Answer": final_transcript})
     os.remove("audio.wav")
 
+
 def child_response():
+    import streamlit as st
+    import time
+
+    # Define columns
+    col1, col2 = st.columns([0.5, 0.5])
+
+    with col1:
+        if st.button("Alphabets"):
+            # Custom CSS for the success-style box
+            font_style = """
+            <style>
+            .custom-font {
+                font-family: 'Courier New', Courier, monospace; 
+                color: #04471C; 
+                background-color: #D4EDDA; 
+                padding: 20px; 
+                border-radius: 10px; 
+                border: 1px solid #C3E6CB;
+                font-size: 35px;
+                font-weight: bold;
+                text-align: center;
+            }
+            </style>
+            """
+            st.markdown(font_style, unsafe_allow_html=True)
+
+            # Create single placeholders
+            placeholder = st.empty()
+            imageholder = st.empty()
+
+            try:
+                with open('alphabets.txt', 'r') as file:
+                    for line in file:
+                        text = line.strip()
+                        if text:
+                            # Update the SAME placeholders every time
+                            placeholder.markdown(f'<div class="custom-font">{text}</div>', unsafe_allow_html=True)
+
+                            # Added the 'f' prefix to correctly reference the variable
+                            image_path = f"images/{text}.png"
+                            imageholder.image(image_path)
+
+                            # Wait for 2 seconds
+                            time.sleep(2)
+
+                    # Clear the screen only AFTER the entire loop is finished
+                    placeholder.empty()
+                    imageholder.empty()
+                    st.success("Sequence complete!")
+
+            except FileNotFoundError:
+                st.error("File 'alphabets.txt' not found. Please check the file path.")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
 
 
 
