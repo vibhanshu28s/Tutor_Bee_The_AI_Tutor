@@ -223,10 +223,18 @@ def transcript_db():
     db[collection_name].insert_one({"Child_Answer": final_transcript})
     os.remove("audio.wav")
 
-
 def child_response():
     import streamlit as st
     import time
+    from elevenlabs import ElevenLabs, VoiceSettings
+    # from dotenv import load_dotenv
+    import os
+    import pygame
+
+    # load_dotenv()
+    eleven_api = os.getenv("ELEVENLABS_API_KEY")
+
+    client = ElevenLabs(api_key=eleven_api)
 
     # 1. Reset alignment and background styles immediately
     reset_style = """
@@ -303,8 +311,29 @@ def child_response():
                             image_path = f"images/{text}.png"
                             imageholder.image(image_path)
 
+                            audio = client.text_to_speech.convert(
+                                text=text,
+                                voice_id="MF3mGyEYCl7XYWbV9V6O",
+                                model_id="eleven_v3",
+                                voice_settings=VoiceSettings(
+                                    stability=0.5,
+                                    similarity_boost=0.85,
+                                    style=0.0,
+                                    use_speaker_boost=True
+                                )
+                            )
+                            with open("response.mp3", "wb") as f:
+                                for chunk in audio:
+                                    f.write(chunk)
+
+                            pygame.mixer.init()
+                            sound_file = "response.mp3"
+                            pygame.mixer.music.load(sound_file)
+                            pygame.mixer.music.play()
+
+
                             # Wait for 2 seconds
-                            time.sleep(2)
+                            time.sleep(5)
 
                     # Clear the screen only AFTER the entire loop is finished
                     placeholder.empty()
@@ -322,3 +351,4 @@ if st.session_state.page == 'home':
     welcome()
 elif st.session_state.page == 'next_page':
     child_response()
+
