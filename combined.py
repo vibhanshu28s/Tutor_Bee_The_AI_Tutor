@@ -295,7 +295,14 @@ def child_response():
             """
             st.markdown(font_style, unsafe_allow_html=True)
 
+
             # Create single placeholders
+            pygame.mixer.init()
+            sound_file = "repeat after me.mp3"
+            pygame.mixer.music.load(sound_file)
+            pygame.mixer.music.play()
+            time.sleep(3)
+
             placeholder = st.empty()
             imageholder = st.empty()
 
@@ -322,17 +329,19 @@ def child_response():
                                     use_speaker_boost=True
                                 )
                             )
+
                             with open("response.mp3", "wb") as f:
                                 for chunk in audio:
                                     f.write(chunk)
 
+                            # display_clean_video("your_video.mp4")
                             pygame.mixer.init()
                             sound_file = "response.mp3"
                             pygame.mixer.music.load(sound_file)
                             pygame.mixer.music.play()
 
 
-                            # Wait for 2 seconds
+
                             time.sleep(5)
 
                     # Clear the screen only AFTER the entire loop is finished
