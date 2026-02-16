@@ -228,6 +228,42 @@ def child_response():
     import streamlit as st
     import time
 
+    # 1. Reset alignment and background styles immediately
+    reset_style = """
+        <style>
+            [data-testid="stAppViewContainer"] {
+                background-image: none !important; /* Clears the old BG if new one fails */
+            }
+            [data-testid="stVerticalBlock"] {
+                align-items: flex-start !important;
+                justify-content: flex-start !important;
+                text-align: left !important;
+            }
+        </style>
+    """
+    st.markdown(reset_style, unsafe_allow_html=True)
+
+    # 2. Set the new background
+    def get_base64_of_bin_file(bin_file):
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+
+    def set_png_as_page_bg(bin_file):
+        bin_str = get_base64_of_bin_file(bin_file)
+        page_bg_img = f'''
+            <style>
+            [data-testid="stAppViewContainer"] {{
+                background-image: url("data:image/png;base64,{bin_str}") !important;
+                background-size: cover !important;
+            }}
+            </style>
+            '''
+        st.markdown(page_bg_img, unsafe_allow_html=True)
+
+    set_png_as_page_bg('static/workking_background.png')
+
+
     # Define columns
     col1, col2 = st.columns([0.5, 0.5])
 
