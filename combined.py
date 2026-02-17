@@ -148,48 +148,55 @@ def welcome():
                         st.error(f"Database Error: {e}")
 
     # return name, age_input
-def  recording():
+def recording():
     from streamlit_webrtc import webrtc_streamer, WebRtcMode
     from aiortc.contrib.media import MediaRecorder
 
+    collection_name = st.session_state.get('collectioName', 'Guest')
+    # 1. Ensure the directory exists so the recorder doesn't fail
+    if not os.path.exists("recordings"):
+        os.makedirs("recordings")
+
+    # 2. Define the factory INSIDE the main function
     def recorder_factory():
-        return MediaRecorder("audio.wav")
 
+        # This generates a unique name every time the 'Start' button is pressed
+        # timestamp = int(time.time())
+        filename = f"recordings/audio_{collection_name}.wav"
 
-    if "start_time" not in st.session_state:
-        st.session_state.start_time = None
+        # Store the filename in session state so we can find it later to play it back
+        st.session_state.last_file = filename
 
-    playing = st.session_state.get("playing", True)
+        return MediaRecorder(filename)
+
+    # st.title("Unique Session Recorder")
 
     webrtc_ctx = webrtc_streamer(
-        key="auto-save-recorder",
+        key="unique-recorder",
         mode=WebRtcMode.SENDONLY,
         media_stream_constraints={"audio": True, "video": False},
         in_recorder_factory=recorder_factory,
-        desired_playing_state=playing,
     )
 
+    # 3. Show the user what's happening
     if webrtc_ctx.state.playing:
-        if st.session_state.start_time is None:
-            st.session_state.start_time = time.time()
+        st.warning("🔴 Recording... (Click 'Stop' to save)")
+    else:
+        # If we have a record of the last file, show a player for it
+        if "last_file" in st.session_state and os.path.exists(st.session_state.last_file):
+            st.success(f"Saved: {st.session_state.last_file}")
+            st.audio(st.session_state.last_file)
 
-        elapsed_time = time.time() - st.session_state.start_time
-
-        if elapsed_time < 10:
-            time.sleep(0.5)
-            st.rerun()
-        else:
-            st.session_state.playing = False
-            st.session_state.start_time = None
-            # st.rerun
 def transcript_db():
     import os
     import json
     import wave
 
+    collection_name = st.session_state.get('collectioName', 'Guest')
+
     model_instance_1 = get_vosk_model("vosk-model-en-us-0.22")
 
-    wf = wave.open("audio.wav", "rb")
+    wf = wave.open(f"recordings/audio_{collection_name}.wav", "rb")
 
     rec = KaldiRecognizer(model_instance_1, wf.getframerate())
 
@@ -211,20 +218,31 @@ def transcript_db():
     # print(" ".join(full_text))
     final_transcript = " ".join(full_text)
 
-    # DataBase Initialization
-    name = st.session_state.get('user_name', 'Guest')
-    collection_name = st.session_state.get('collectioName', 'Guest')
-    st.title(f"Hello {name}!")
+    # # DataBase Initialization
+    # mongo_uri = os.getenv("mongo_connector")
+    # client = MongoClient(mongo_uri)
+    # db = client["test_data"]
+    # print(final_transcript)
+    # db[collection_name].insert_one({"Child_Answer": final_transcript})
 
-    mongo_uri = os.getenv("mongo_connector")
-    client = MongoClient(mongo_uri)
-    db = client["test_data"]
-    print(final_transcript)
-    db[collection_name].insert_one({"Child_Answer": final_transcript})
-    os.remove("audio.wav")
+    if "db_inserted" not in st.session_state:
+        st.session_state.db_inserted = False
+
+    if final_transcript and not st.session_state.db_inserted:
+        mongo_uri = os.getenv("mongo_connector")
+        client = MongoClient(mongo_uri)
+        db = client['test_data']
+
+        print(f"INSERTING TO DB: {final_transcript}")
+        db[collection_name].insert_one({"Child_Answer": final_transcript})
+
+        # Set the flag to True so it doesn't run again until reset
+        st.session_state.db_inserted = True
+    else:
+        print("Skipping DB insertion: already inserted or empty.")
 
 def child_response():
-    import streamlit as st
+
     import time
     from elevenlabs import ElevenLabs, VoiceSettings
     import os
@@ -234,6 +252,9 @@ def child_response():
     eleven_api = os.getenv("ELEVENLABS_API_KEY")
 
     client = ElevenLabs(api_key=eleven_api)
+    name = st.session_state.get('user_name', 'Guest')
+    st.title(f"Hello {name}!")
+
 
     # 1. Reset alignment and background styles immediately
     reset_style = """
@@ -271,8 +292,6 @@ def child_response():
     set_png_as_page_bg('static/workking_background.png')
 
     recording()
-    # st.warning("Please Wait While We Are Loading . . .")
-    time.sleep(3)
 
     # Define columns
     col1, col2 = st.columns([0.5, 0.5])
@@ -362,10 +381,19 @@ def child_response():
             except Exception as e:
                 st.error(f"An error occurred: {e}")
 
+    transcript_db()
+    collection_name = st.session_state.get('collectioName', 'Guest')
+    os.remove(f"recordings/audio_{collection_name}.wav")
+    st.session_state.page = "processing_page"
+
+def process_saving():
+    st.title("Processing Saving")
+
 
 
 if st.session_state.page == 'home':
     welcome()
 elif st.session_state.page == 'next_page':
     child_response()
-
+elif st.session_state.page == 'processing_page':
+    process_saving()
