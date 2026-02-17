@@ -227,7 +227,6 @@ def child_response():
     import streamlit as st
     import time
     from elevenlabs import ElevenLabs, VoiceSettings
-    # from dotenv import load_dotenv
     import os
     import pygame
 
@@ -271,6 +270,9 @@ def child_response():
 
     set_png_as_page_bg('static/workking_background.png')
 
+    recording()
+    # st.warning("Please Wait While We Are Loading . . .")
+    time.sleep(3)
 
     # Define columns
     col1, col2 = st.columns([0.5, 0.5])
@@ -302,6 +304,7 @@ def child_response():
             pygame.mixer.music.load(sound_file)
             pygame.mixer.music.play()
             time.sleep(3)
+
 
             placeholder = st.empty()
             imageholder = st.empty()
@@ -341,13 +344,18 @@ def child_response():
                             pygame.mixer.music.play()
 
 
+                            # transcript_db()
+
+
 
                             time.sleep(5)
+
 
                     # Clear the screen only AFTER the entire loop is finished
                     placeholder.empty()
                     imageholder.empty()
                     st.success("Sequence complete!")
+
 
             except FileNotFoundError:
                 st.error("File 'alphabets.txt' not found. Please check the file path.")
