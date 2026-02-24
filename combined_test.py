@@ -246,13 +246,6 @@ def child_response():
     import pygame
     load_dotenv()
 
-    mongo_uri = os.getenv("mongo_connector")
-    client = MongoClient(mongo_uri)
-    db = client['test_data']
-
-
-    collection_name = st.session_state.get('collectioName', 'Guest')
-
     eleven_api = os.getenv("ELEVENLABS_API_KEY")
 
     client = ElevenLabs(api_key=eleven_api)
@@ -302,7 +295,6 @@ def child_response():
 
     with col1:
         if st.button("Alphabets"):
-            db[collection_name].insert_one({"Subject": "Alphabets"})
             font_style = """
             <style>
             .custom-font {
