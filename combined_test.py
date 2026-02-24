@@ -8,6 +8,7 @@ import time
 from vosk import Model, KaldiRecognizer
 import functools
 
+
 @functools.lru_cache(maxsize=1)
 def get_vosk_model(model_path):
 
@@ -19,7 +20,6 @@ if 'page' not in st.session_state:
     st.session_state.page = 'home'
 
 def welcome():
-    # Placing Bacground Image.
 
     def get_base64_of_bin_file(bin_file):
         with open(bin_file, 'rb') as f:
@@ -150,7 +150,6 @@ def welcome():
 
 def recording():
     import os
-    import streamlit as st
     from streamlit_webrtc import webrtc_streamer, WebRtcMode
     from aiortc.contrib.media import MediaRecorder
 
@@ -188,10 +187,6 @@ def recording():
         if "last_file" in st.session_state and os.path.exists(st.session_state.last_file):
             st.success("Recording captured!")
 
-            # Update page state to trigger the move
-            # st.session_state.page = "processing_page"
-            # st.rerun()
-
 
 
 def transcript_db():
@@ -201,7 +196,7 @@ def transcript_db():
 
     collection_name = st.session_state.get('collectioName', 'Guest')
 
-    model_instance_1 = get_vosk_model("vosk-model-en-us-0.22")
+    model_instance_1 = get_vosk_model("vosk-model-small-en-us-0.15 2")
 
     wf = wave.open(f"recordings/audio_{collection_name}.wav", "rb")
 
@@ -249,8 +244,14 @@ def child_response():
     from elevenlabs import ElevenLabs, VoiceSettings
     import os
     import pygame
+    load_dotenv()
 
-    # load_dotenv()
+    mongo_uri = os.getenv("mongo_connector")
+    client = MongoClient(mongo_uri)
+    db = client['test_data']
+
+
+    collection_name = st.session_state.get('collectioName', 'Guest')
     eleven_api = os.getenv("ELEVENLABS_API_KEY")
 
     client = ElevenLabs(api_key=eleven_api)
@@ -300,7 +301,7 @@ def child_response():
 
     with col1:
         if st.button("Alphabets"):
-            # Custom CSS for the success-style box
+            db[collection_name].insert_one({"Subject": "Alphabets"})
             font_style = """
             <style>
             .custom-font {
@@ -317,7 +318,6 @@ def child_response():
             </style>
             """
             st.markdown(font_style, unsafe_allow_html=True)
-
 
             # Create single placeholders
             pygame.mixer.init()
@@ -364,15 +364,8 @@ def child_response():
                             pygame.mixer.music.load(sound_file)
                             pygame.mixer.music.play()
 
-
-                            # transcript_db()
-
-
-
                             time.sleep(5)
 
-
-                    # Clear the screen only AFTER the entire loop is finished
                     placeholder.empty()
                     imageholder.empty()
                     st.success("Sequence complete!")
@@ -387,12 +380,97 @@ def child_response():
         st.session_state.page = 'processing_page'
         st.rerun()
 
+def ai_response():
+    from langchain_groq import ChatGroq
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    from dotenv import load_dotenv
+    import os
+
+
+    load_dotenv()
+    api_key = os.getenv("GROQ_API_KEY")
+    llm = ChatGroq(
+        model="llama-3.1-8b-instant",
+        temperature=0.7,
+        api_key=api_key,
+    )
+
+    # Define a prompt template
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """ we have dataset of which contains {dataset} like A For Apple.
+        You are an expert educator for children age<5 years learning to pronounce specializing in {subject}. 
+        Your task is to evaluate a student's response based on the following learning objectives: {learning_goals}.
+
+        Provide a balanced critique in this format:
+        1. **Strong Points**: What did the student grasp well?
+        2. **Weak Points**: Where are the misconceptions or missing details?
+        3. **Actionable Advice**: One specific tip to improve for next time.
+
+        Use a {tone} tone that encourages the student."""),
+
+        ("user", "Subject: {subject}\nStudent Response: {child_response}")
+    ])
+
+    # Create the chain
+    chain = prompt | llm | StrOutputParser()
+
+    # Invoke the chain
+    # Invoke the chain with ALL required keys
+    response = chain.invoke({
+        "dataset": "Alphabets",
+        "subject": "Alphabets",
+        "learning_goals": "understanding of pronunciation of alphabets ",
+        "tone": "encouraging and motivating",
+        "child_response": "B for apl."
+    })
+
+    st.title(response)
+
 def process_saving():
-    st.title("Saving And Building The Result")
+    st.success("Saving And Building The Result")
+
+    # 1. Reset alignment and background styles immediately
+    reset_style = """
+        <style>
+            [data-testid="stAppViewContainer"] {
+                background-image: none !important; /* Clears the old BG if new one fails */
+            }
+            [data-testid="stVerticalBlock"] {
+                align-items: flex-start !important;
+                justify-content: flex-start !important;
+                text-align: left !important;
+            }
+        </style>
+    """
+    st.markdown(reset_style, unsafe_allow_html=True)
+
+    # 2. Set the new background
+    def get_base64_of_bin_file(bin_file):
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+
+    def set_png_as_page_bg(bin_file):
+        bin_str = get_base64_of_bin_file(bin_file)
+        page_bg_img = f'''
+            <style>
+            [data-testid="stAppViewContainer"] {{
+                background-image: url("data:image/png;base64,{bin_str}") !important;
+                background-size: cover !important;
+            }}
+            </style>
+            '''
+        st.markdown(page_bg_img, unsafe_allow_html=True)
+
+    set_png_as_page_bg('static/workking_background.png')
+
     transcript_db()
     collection_name = st.session_state.get('collectioName', 'Guest')
     os.remove(f"recordings/audio_{collection_name}.wav")
-    st.session_state.page = "processing_page"
+
+    ai_response()
+
 
 
 if st.session_state.page == 'home':
