@@ -252,6 +252,7 @@ def child_response():
 
 
     collection_name = st.session_state.get('collectioName', 'Guest')
+
     eleven_api = os.getenv("ELEVENLABS_API_KEY")
 
     client = ElevenLabs(api_key=eleven_api)
@@ -386,9 +387,8 @@ def ai_response():
     from langchain_core.output_parsers import StrOutputParser
     from dotenv import load_dotenv
     import os
-
-
     load_dotenv()
+
     api_key = os.getenv("GROQ_API_KEY")
     llm = ChatGroq(
         model="llama-3.1-8b-instant",
