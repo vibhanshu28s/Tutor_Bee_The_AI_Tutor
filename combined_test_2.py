@@ -196,7 +196,7 @@ def transcript_db():
 
     collection_name = st.session_state.get('collectioName', 'Guest')
 
-    model_instance_1 = get_vosk_model("vosk-model-small-en-us-0.15 2")
+    model_instance_1 = get_vosk_model("vosk-model-en-us-0.22")
 
     wf = wave.open(f"recordings/audio_{collection_name}.wav", "rb")
 
@@ -216,9 +216,11 @@ def transcript_db():
     final_result = json.loads(rec.FinalResult())
     full_text.append(final_result.get("text", ""))
 
-    print("FINAL TRANSCRIPT:")
+    # print("FINAL TRANSCRIPT:")
     # print(" ".join(full_text))
     final_transcript = " ".join(full_text)
+
+    st.session_state["final_transcript"] = final_transcript
 
     # DataBase Initialization
 
@@ -295,6 +297,7 @@ def child_response():
 
     with col1:
         if st.button("Alphabets"):
+            st.session_state["selected_subject"] = "Alphabets"
             font_style = """
             <style>
             .custom-font {
@@ -387,6 +390,8 @@ def ai_response():
         temperature=0.7,
         api_key=api_key,
     )
+    child_response = st.session_state.get("final_transcript", "No response captured.")
+
 
     # Define a prompt template
     prompt = ChatPromptTemplate.from_messages([
@@ -409,12 +414,13 @@ def ai_response():
 
     # Invoke the chain
     # Invoke the chain with ALL required keys
+    subject = st.session_state.get("selected_subject", "General")
     response = chain.invoke({
-        "dataset": "Alphabets",
-        "subject": "Alphabets",
+        "dataset": subject,
+        "subject": subject,
         "learning_goals": "understanding of pronunciation of alphabets ",
         "tone": "encouraging and motivating",
-        "child_response": "B for apl."
+        "child_response": child_response
     })
 
     st.title(response)
